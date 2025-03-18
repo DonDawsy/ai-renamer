@@ -37,7 +37,6 @@ module.exports = async options => {
         '- Include main topic/subject',
         '- Add year or date if present with a space before: "filename YYYY" (not "filenameYYYY")',
         '- Format as "topic-purpose" if possible',
-        '- Example: "Sugar Exemption Declaration 2024" NOT "Sugar Exemption Declaration2024"'
       )
     }
 
