@@ -1,6 +1,8 @@
 const path = require('path')
 const pdf = require('pdf-parse')
 const fs = require('fs').promises
+const mammoth = require('mammoth')
+const { promisify } = require('util')
 
 /**
  * Extract and format content from PDF files with metadata
@@ -50,6 +52,52 @@ const extractPdfContent = async (dataBuffer) => {
   }
 }
 
+/**
+ * Extract text from a .doc file using textract
+ * 
+ * @param {string} filePath - Path to the .doc file
+ * @returns {Promise<string>} Extracted text content
+ */
+const extractWithTextract = async (filePath) => {
+  try {
+    const textract = require('textract')
+    const extractText = promisify(textract.fromFileWithPath)
+    return await extractText(filePath)
+  } catch (err) {
+    if (err.code === 'MODULE_NOT_FOUND') {
+      console.log('For better support of .doc files, install textract: npm install textract')
+      return null
+    }
+    throw err
+  }
+}
+
+/**
+ * Extract text from a Word document (.doc or .docx)
+ * 
+ * @param {string} filePath - Path to the document
+ * @returns {Promise<string>} Extracted text content
+ */
+const extractWordContent = async (filePath) => {
+  const ext = path.extname(filePath).toLowerCase()
+  let text = null
+
+  // Try mammoth first (better for .docx)
+  try {
+    const result = await mammoth.extractRawText({ path: filePath })
+    text = result.value
+  } catch (mammothError) {
+    console.log(`Mammoth couldn't process ${filePath}, trying alternative method...`)
+  }
+
+  // If mammoth failed and it's a .doc file, try textract
+  if (!text && ext === '.doc') {
+    text = await extractWithTextract(filePath)
+  }
+
+  return text || ''
+}
+
 module.exports = async ({ filePath }) => {
   try {
     const ext = path.extname(filePath).toLowerCase()
@@ -58,6 +106,9 @@ module.exports = async ({ filePath }) => {
       const dataBuffer = await fs.readFile(filePath)
       const pdfContent = await extractPdfContent(dataBuffer)
       return pdfContent
+    } else if (ext === '.doc' || ext === '.docx') {
+      const content = await extractWordContent(filePath)
+      return content
     } else {
       const content = await fs.readFile(filePath, 'utf8')
       return content
