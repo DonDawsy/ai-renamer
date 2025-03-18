@@ -8,18 +8,34 @@ module.exports = async options => {
 
   try {
     const promptLines = [
-      'Generate filename:',
+      // 'Generate filename:',
+      // '',
+      // `Use ${_case}`,
+      // `Max ${chars} characters`,
+      // `${language} only`,
+      // 'No file extension',
+      // 'No special chars',
+      // 'Only key elements',
+      // 'One word if possible',
+      // 'Noun-verb format',
+      // '',
+      // 'Respond ONLY with filename.'
+
+      'Generate descriptive filename for the provided image:',
       '',
-      `Use ${_case}`,
-      `Max ${chars} characters`,
-      `${language} only`,
-      'No file extension',
-      'No special chars',
-      'Only key elements',
-      'One word if possible',
-      'Noun-verb format',
+      'Rules:',
+      `• Max ${chars} characters`,
+      '• English words only',
+      '• Exclude file extension',
+      '• No special characters',
+      '• Include only essential elements',
+      '• Format: Noun + Action/State',
+      '• Describe main subject and activity',
       '',
-      'Respond ONLY with filename.'
+      'Example: "Cat Sleeping" for an image of a sleeping cat',
+      '',
+      'Respond ONLY with the generated filename.'
+
     ]
 
     if (videoPrompt) {
