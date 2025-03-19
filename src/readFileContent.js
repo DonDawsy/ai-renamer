@@ -74,6 +74,7 @@ const extractWithTextract = async (filePath) => {
 
 /**
  * Extract text from a Word document (.doc or .docx)
+ * Limits content to approximately first page (2000 characters)
  * 
  * @param {string} filePath - Path to the document
  * @returns {Promise<string>} Extracted text content
@@ -95,7 +96,21 @@ const extractWordContent = async (filePath) => {
     text = await extractWithTextract(filePath)
   }
 
-  return text || ''
+  if (!text) return ''
+
+  // Clean up the text and limit to approximately first page
+  text = text.trim()
+  
+  // Get first few paragraphs (likely the most important content)
+  const paragraphs = text.split('\n\n')
+  const firstPageContent = paragraphs.slice(0, 3).join('\n\n').trim()
+
+  // Limit to ~2000 chars which is roughly one page
+  if (firstPageContent.length > 2000) {
+    return firstPageContent.substring(0, 2000) + '...'
+  }
+  
+  return firstPageContent
 }
 
 module.exports = async ({ filePath }) => {
