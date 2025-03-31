@@ -4,6 +4,7 @@
  * This module is responsible for processing individual files for AI-based renaming.
  * It handles different file types (images, videos, and text files) with specialized processing
  * for each type, then uses AI to generate a new name based on the file's content.
+ * It also supports generating thumbnails for any file that macOS can render thumbnails for.
  */
 
 // Node.js built-in path module for handling file paths
@@ -21,6 +22,8 @@ const extractFrames = require('./extractFrames')
 const readFileContent = require('./readFileContent')
 const deleteDirectory = require('./deleteDirectory')
 const isProcessableFile = require('./isProcessableFile')
+const generateThumbnail = require('./generateThumbnail')
+const extractAffinityThumbnail = require('./extractAffinityThumbnail')
 
 /**
  * Check if a file is a PDF
@@ -30,6 +33,16 @@ const isProcessableFile = require('./isProcessableFile')
  */
 const isPdf = ({ ext }) => {
   return ext.toLowerCase() === '.pdf'
+}
+
+/**
+ * Check if a file is an Affinity Designer or Photo file
+ * 
+ * @param {string} ext - File extension
+ * @returns {boolean} True if the file is an Affinity file
+ */
+const isAffinityFile = ({ ext }) => {
+  return ext.toLowerCase() === '.afdesign' || ext.toLowerCase() === '.afphoto'
 }
 
 /**
@@ -118,15 +131,50 @@ module.exports = async options => {
       
       // Use the first content section of the PDF as the main content
       content = pdfContent.firstContent || pdfContent.fullText
-      
+    } else if (isAffinityFile({ ext })) {
+      // For Affinity files, extract a thumbnail for analysis
+      const _extractedAffinityThumbnail = await extractAffinityThumbnail({ filePath })
+      if (_extractedAffinityThumbnail) {
+        images.push(_extractedAffinityThumbnail)
+      }
     } else {
-      // For text-based files, read the file content
-      content = await readFileContent({ filePath })
-      
-      // Skip files without readable content
-      if (!content) {
-        console.log(`🔴 No text content: ${relativeFilePath}`)
-        return
+      // Try to handle any other file type that macOS can generate thumbnails for
+      console.log(`🔄 Processing non-standard file type: ${ext} (${relativeFilePath})`);
+      try {
+        // Generate a thumbnail using qlmanage
+        console.log(`📸 Attempting to generate thumbnail using qlmanage for: ${relativeFilePath}`);
+        const thumbnailPath = await generateThumbnail({ filePath });
+        
+        if (thumbnailPath) {
+          // If thumbnail generation succeeded, add it to the images array
+          images.push(thumbnailPath);
+          console.log(`🟢 Generated thumbnail for: ${relativeFilePath}`);
+          console.log(`📄 Thumbnail path: ${thumbnailPath}`);
+          
+          // Mark this path for cleanup
+          framesOutputDir = path.dirname(thumbnailPath);
+        } else {
+          console.log(`⚠️ Thumbnail generation failed, falling back to text content for: ${relativeFilePath}`);
+          // Fall back to reading as text if thumbnail generation fails
+          content = await readFileContent({ filePath });
+          
+          // Skip files without readable content
+          if (!content) {
+            console.log(`🔴 No content or preview: ${relativeFilePath}`);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error in thumbnail generation: ${error.message}`);
+        // If thumbnail generation fails, fall back to reading as text
+        console.log(`⚠️ Falling back to text content for: ${relativeFilePath}`);
+        content = await readFileContent({ filePath });
+        
+        // Skip files without readable content
+        if (!content) {
+          console.log(`🔴 No text content: ${relativeFilePath}`);
+          return;
+        }
       }
     }
 
@@ -150,8 +198,8 @@ module.exports = async options => {
     const relativeNewFilePath = path.join(path.dirname(relativeFilePath), newFileName)
     console.log(`🟢 Renamed: ${relativeFilePath} to ${relativeNewFilePath}`)
 
-    // Clean up temporary files for video processing
-    if (isVideo({ ext }) && framesOutputDir) {
+    // Clean up temporary files for video processing or thumbnails
+    if (framesOutputDir) {
       await deleteDirectory({ folderPath: framesOutputDir })
     }
   } catch (err) {
