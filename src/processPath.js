@@ -16,7 +16,8 @@ module.exports = async ({
   defaultProvider,
   defaultCustomPrompt,
   defaultIncludeSubdirectories,
-  useDescription
+  useDescription,
+  useKeywords
 }) => {
   try {
     const provider = defaultProvider || 'ollama'
@@ -64,6 +65,10 @@ module.exports = async ({
       console.log(`⚪ Mode: Setting Finder description instead of renaming`)
     }
 
+    if (useKeywords) {
+      console.log(`⚪ Mode: Setting Finder keywords instead of renaming`)
+    }
+
     console.log('--------------------------------------------------')
 
     const stats = await fs.stat(inputPath)
@@ -79,7 +84,8 @@ module.exports = async ({
       inputPath,
       includeSubdirectories,
       customPrompt,
-      useDescription
+      useDescription,
+      useKeywords
     }
 
     if (stats.isDirectory()) {

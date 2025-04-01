@@ -82,6 +82,11 @@ module.exports = async () => {
       alias: 'd',
       type: 'boolean',
       description: 'Set Finder file description instead of renaming the file'
+    })
+    .option('keywords', {
+      alias: 'k',
+      type: 'boolean',
+      description: 'Generate keywords for the file instead of renaming it'
     }).argv
 
   if (argv.help) {
@@ -141,6 +146,10 @@ module.exports = async () => {
 
   if (argv.description) {
     config.useDescription = true
+  }
+
+  if (argv.keywords) {
+    config.useKeywords = true
   }
 
   return { argv, config }

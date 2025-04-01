@@ -92,7 +92,7 @@ const setFinderComment = async ({ filePath, description }) => {
 module.exports = async options => {
   try {
     // Extract necessary options
-    const { frames, filePath, inputPath, useDescription } = options
+    const { frames, filePath, inputPath, useDescription, useKeywords } = options
 
     // Get file information
     const fileName = path.basename(filePath)
@@ -237,15 +237,15 @@ module.exports = async options => {
     // Skip if no result was generated
     if (!result) return
 
-    if (useDescription) {
-      // Set the description as a Finder comment instead of renaming the file
+    if (useDescription || useKeywords) {
+      // Set the description or keywords as a Finder comment instead of renaming the file
       const success = await setFinderComment({ filePath, description: result })
       
       if (success) {
-        console.log(`🟢 Set description for: ${relativeFilePath}`)
-        console.log(`📝 Description: "${result}"`)
+        console.log(`🟢 Set ${useKeywords ? 'keywords' : 'description'} for: ${relativeFilePath}`)
+        console.log(`📝 ${useKeywords ? 'Keywords' : 'Description'}: "${result}"`)
       } else {
-        console.log(`🔴 Failed to set description for: ${relativeFilePath}`)
+        console.log(`🔴 Failed to set ${useKeywords ? 'keywords' : 'description'} for: ${relativeFilePath}`)
       }
     } else {
       // Rename the file with the AI-generated name

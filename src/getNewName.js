@@ -4,12 +4,28 @@ const fs = require('fs').promises
 const path = require('path')
 
 module.exports = async options => {
-  const { _case, chars, content, language, videoPrompt, pdfPrompt, customPrompt, relativeFilePath, showPrompt, useDescription } = options
+  const { _case, chars, content, language, videoPrompt, pdfPrompt, customPrompt, relativeFilePath, showPrompt, useDescription, useKeywords } = options
 
   try {
     let promptLines = []
     
-    if (useDescription) {
+    if (useKeywords) {
+      // Prompt for keywords mode
+      promptLines = [
+        'Generate keywords for this file:',
+        '',
+        'Rules:',
+        '• Maximum 10 keywords',
+        `• Use ${language} language`,
+        '• Include important subjects, actions, and visual elements',
+        '• Separate keywords with commas',
+        '• Use single words',
+        '• Order by relevance',
+        '• Always capitalize the first letter of each keyword',
+        '',
+        'Respond ONLY with the comma-separated keywords.'
+      ]
+    } else if (useDescription) {
       // Prompt for description mode
       promptLines = [
         'Generate a detailed description of this file for use as metadata:',
@@ -96,8 +112,8 @@ module.exports = async options => {
 
     const modelResult = await getModelResponse({ ...options, prompt })
     
-    if (useDescription) {
-      // For description mode, return the full text without character limit or case conversion
+    if (useKeywords || useDescription) {
+      // For keywords and description modes, return the full text without character limit or case conversion
       return modelResult.trim()
     } else {
       // For filename mode, process as before
