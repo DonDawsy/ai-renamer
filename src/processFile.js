@@ -7,7 +7,8 @@
  * It also supports generating thumbnails for any file that macOS can render thumbnails for.
  */
 
-// Node.js built-in path module for handling file paths
+// Node.js built-in modules
+const fs = require('fs')
 const path = require('path')
 // UUID generator for creating unique temporary directory names
 const { v4: uuidv4 } = require('uuid')
@@ -96,13 +97,26 @@ const setFinderTags = async ({ filePath, keywords }) => {
     
     if (tags.length === 0) return false
 
-    // Convert tags array to plist format that Finder expects
+    // Create a temporary plist file
+    const tmpPlist = `/tmp/tags_${Date.now()}.plist`
+    
+    // Convert tags array to plist format
     const plistTags = tags.map(tag => `<string>${tag}</string>`).join('')
     const plist = `<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array>${plistTags}</array></plist>`
     
-    // Use xattr to set the com.apple.metadata:_kMDItemUserTags attribute
-    const command = `xattr -w com.apple.metadata:_kMDItemUserTags '${plist}' "${filePath}"`
-    execSync(command)
+    // Write the XML plist to temporary file
+    fs.writeFileSync(tmpPlist, plist)
+    
+    // Convert to binary plist
+    execSync(`plutil -convert binary1 "${tmpPlist}"`)
+    
+    // Read the binary plist and set it using xattr
+    const binaryPlist = fs.readFileSync(tmpPlist)
+    execSync(`xattr -wx com.apple.metadata:_kMDItemUserTags "${binaryPlist.toString('hex')}" "${filePath}"`)
+    
+    // Clean up temporary file
+    fs.unlinkSync(tmpPlist)
+    
     return true
   } catch (error) {
     console.error(`Error setting Finder tags: ${error.message}`)
