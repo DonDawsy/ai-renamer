@@ -15,7 +15,8 @@ module.exports = async ({
   defaultLanguage,
   defaultProvider,
   defaultCustomPrompt,
-  defaultIncludeSubdirectories
+  defaultIncludeSubdirectories,
+  useDescription
 }) => {
   try {
     const provider = defaultProvider || 'ollama'
@@ -58,6 +59,10 @@ module.exports = async ({
     if (customPrompt) {
       console.log(`⚪ Custom Prompt: ${customPrompt}`)
     }
+    
+    if (useDescription) {
+      console.log(`⚪ Mode: Setting Finder description instead of renaming`)
+    }
 
     console.log('--------------------------------------------------')
 
@@ -73,7 +78,8 @@ module.exports = async ({
       provider,
       inputPath,
       includeSubdirectories,
-      customPrompt
+      customPrompt,
+      useDescription
     }
 
     if (stats.isDirectory()) {

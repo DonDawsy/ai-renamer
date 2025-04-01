@@ -77,6 +77,11 @@ module.exports = async () => {
       alias: 'r',
       type: 'string',
       description: 'Add a custom prompt to the LLM (e.g. "Only describe the background")'
+    })
+    .option('description', {
+      alias: 'd',
+      type: 'boolean',
+      description: 'Set Finder file description instead of renaming the file'
     }).argv
 
   if (argv.help) {
@@ -132,6 +137,10 @@ module.exports = async () => {
   if (argv['custom-prompt']) {
     config.defaultCustomPrompt = argv['custom-prompt']
     await saveConfig({ config })
+  }
+
+  if (argv.description) {
+    config.useDescription = true
   }
 
   return { argv, config }

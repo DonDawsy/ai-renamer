@@ -11,6 +11,8 @@
 const path = require('path')
 // UUID generator for creating unique temporary directory names
 const { v4: uuidv4 } = require('uuid')
+// Child process for executing shell commands
+const { execSync } = require('child_process')
 
 // Import utility modules
 // For determining file types and processing specific file formats
@@ -56,18 +58,41 @@ const isNonEmptyString = (value) => {
 }
 
 /**
+ * Set Finder comment/description for a file using AppleScript
+ * 
+ * @param {string} filePath - Path to the file
+ * @param {string} description - Description to set as Finder comment
+ * @returns {boolean} Success status
+ */
+const setFinderComment = async ({ filePath, description }) => {
+  try {
+    // Escape quotes in the description for AppleScript
+    const escapedDescription = description.replace(/"/g, '\\"')
+    
+    // Create and execute the AppleScript command
+    const command = `osascript -e 'tell application "Finder" to set comment of (POSIX file "${filePath}" as alias) to "${escapedDescription}"'`
+    execSync(command)
+    return true
+  } catch (error) {
+    console.error(`Error setting Finder comment: ${error.message}`)
+    return false
+  }
+}
+
+/**
  * Process a single file for AI-based renaming
  * 
  * @param {Object} options - Configuration options
  * @param {number} options.frames - Number of frames to extract from videos
  * @param {string} options.filePath - Absolute path to the file being processed
  * @param {string} options.inputPath - Root directory being processed
+ * @param {boolean} options.useDescription - Whether to set description instead of renaming
  * @returns {Promise<void>}
  */
 module.exports = async options => {
   try {
     // Extract necessary options
-    const { frames, filePath, inputPath } = options
+    const { frames, filePath, inputPath, useDescription } = options
 
     // Get file information
     const fileName = path.basename(filePath)
@@ -179,7 +204,7 @@ module.exports = async options => {
     }
 
     // Use AI to generate a new name based on the file content
-    const newName = await getNewName({ 
+    const result = await getNewName({ 
       ...options, 
       images,           // Image paths for image/video files
       content,          // Text content for text files
@@ -188,15 +213,27 @@ module.exports = async options => {
       relativeFilePath  // File location information
     })
     
-    // Skip if no new name was generated
-    if (!newName) return
+    // Skip if no result was generated
+    if (!result) return
 
-    // Rename the file with the AI-generated name
-    const newFileName = await saveFile({ ext, newName, filePath })
-    
-    // Calculate the new relative path for reporting
-    const relativeNewFilePath = path.join(path.dirname(relativeFilePath), newFileName)
-    console.log(`🟢 Renamed: ${relativeFilePath} to ${relativeNewFilePath}`)
+    if (useDescription) {
+      // Set the description as a Finder comment instead of renaming the file
+      const success = await setFinderComment({ filePath, description: result })
+      
+      if (success) {
+        console.log(`🟢 Set description for: ${relativeFilePath}`)
+        console.log(`📝 Description: "${result}"`)
+      } else {
+        console.log(`🔴 Failed to set description for: ${relativeFilePath}`)
+      }
+    } else {
+      // Rename the file with the AI-generated name
+      const newFileName = await saveFile({ ext, newName: result, filePath })
+      
+      // Calculate the new relative path for reporting
+      const relativeNewFilePath = path.join(path.dirname(relativeFilePath), newFileName)
+      console.log(`🟢 Renamed: ${relativeFilePath} to ${relativeNewFilePath}`)
+    }
 
     // Clean up temporary files for video processing or thumbnails
     if (framesOutputDir) {

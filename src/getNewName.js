@@ -4,39 +4,45 @@ const fs = require('fs').promises
 const path = require('path')
 
 module.exports = async options => {
-  const { _case, chars, content, language, videoPrompt, pdfPrompt, customPrompt, relativeFilePath, showPrompt } = options
+  const { _case, chars, content, language, videoPrompt, pdfPrompt, customPrompt, relativeFilePath, showPrompt, useDescription } = options
 
   try {
-    const promptLines = [
-      // 'Generate filename:',
-      // '',
-      // `Use ${_case}`,
-      // `Max ${chars} characters`,
-      // `${language} only`,
-      // 'No file extension',
-      // 'No special chars',
-      // 'Only key elements',
-      // 'One word if possible',
-      // 'Noun-verb format',
-      // '',
-      // 'Respond ONLY with filename.'
-
-      'Generate descriptive filename for the provided image:',
-      '',
-      'Rules:',
-      `• Max ${chars} characters`,
-      '• English words only',
-      '• Exclude file extension',
-      '• No special characters',
-      '• Include only essential elements',
-      '• Format: Noun + Action/State',
-      '• Describe main subject and activity',
-      '',
-      'Example: "Cat Sleeping" for an image of a sleeping cat',
-      '',
-      'Respond ONLY with the generated filename.'
-
-    ]
+    let promptLines = []
+    
+    if (useDescription) {
+      // Prompt for description mode
+      promptLines = [
+        'Generate a detailed description of this file for use as metadata:',
+        '',
+        'Rules:',
+        '• Provide a comprehensive yet concise description',
+        `• Use ${language} language`,
+        '• Describe visual elements, content, and context',
+        '• Format in complete sentences',
+        '• Maximum 2-3 sentences',
+        '• Include key details that would help identify this file',
+        '',
+        'Respond ONLY with the description.'
+      ]
+    } else {
+      // Original prompt for filename mode
+      promptLines = [
+        'Generate descriptive filename for the provided image:',
+        '',
+        'Rules:',
+        `• Max ${chars} characters`,
+        '• English words only',
+        '• Exclude file extension',
+        '• No special characters',
+        '• Include only essential elements',
+        '• Format: Noun + Action/State',
+        '• Describe main subject and activity',
+        '',
+        'Example: "Cat Sleeping" for an image of a sleeping cat',
+        '',
+        'Respond ONLY with the generated filename.'
+      ]
+    }
 
     if (videoPrompt) {
       promptLines.unshift(videoPrompt, '')
@@ -46,14 +52,16 @@ module.exports = async options => {
     if (pdfPrompt) {
       promptLines.unshift(pdfPrompt, '')
       
-      // Add specific instructions for PDF naming with explicit spacing instruction
-      promptLines.splice(promptLines.length - 1, 0, 
-        'For PDF files:',
-        '- Prioritize document title if available',
-        '- Include main topic/subject',
-        '- Add year or date if present with a space before: "filename YYYY" (not "filenameYYYY")',
-        '- Format as "topic-purpose" if possible',
-      )
+      // Add specific instructions for PDF naming only in filename mode
+      if (!useDescription) {
+        promptLines.splice(promptLines.length - 1, 0, 
+          'For PDF files:',
+          '- Prioritize document title if available',
+          '- Include main topic/subject',
+          '- Add year or date if present with a space before: "filename YYYY" (not "filenameYYYY")',
+          '- Format as "topic-purpose" if possible',
+        )
+      }
     }
 
     if (content) {
@@ -87,15 +95,21 @@ module.exports = async options => {
     }
 
     const modelResult = await getModelResponse({ ...options, prompt })
-
-    const maxChars = chars + 10
-    const text = modelResult.trim().slice(-maxChars)
     
-    const filename = await changeCase({ text, _case })
-    
-    // Post-process to fix year spacing
-    const fixedFileName = filename.replace(/([a-zA-Z])(\d{4})$/, '$1 $2')
-    return fixedFileName
+    if (useDescription) {
+      // For description mode, return the full text without character limit or case conversion
+      return modelResult.trim()
+    } else {
+      // For filename mode, process as before
+      const maxChars = chars + 10
+      const text = modelResult.trim().slice(-maxChars)
+      
+      const filename = await changeCase({ text, _case })
+      
+      // Post-process to fix year spacing
+      const fixedFileName = filename.replace(/([a-zA-Z])(\d{4})$/, '$1 $2')
+      return fixedFileName
+    }
   } catch (err) {
     console.log(`🔴 Model error: ${err.message} (${relativeFilePath})`)
   }
