@@ -80,6 +80,37 @@ const setFinderComment = async ({ filePath, description }) => {
 }
 
 /**
+ * Set Finder tags for a file using xattr
+ * 
+ * @param {string} filePath - Path to the file
+ * @param {string} keywords - Comma-separated keywords to set as tags
+ * @returns {boolean} Success status
+ */
+const setFinderTags = async ({ filePath, keywords }) => {
+  try {
+    // Split keywords into an array and clean them
+    const tags = keywords
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0)
+    
+    if (tags.length === 0) return false
+
+    // Convert tags array to plist format that Finder expects
+    const plistTags = tags.map(tag => `<string>${tag}</string>`).join('')
+    const plist = `<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array>${plistTags}</array></plist>`
+    
+    // Use xattr to set the com.apple.metadata:_kMDItemUserTags attribute
+    const command = `xattr -w com.apple.metadata:_kMDItemUserTags '${plist}' "${filePath}"`
+    execSync(command)
+    return true
+  } catch (error) {
+    console.error(`Error setting Finder tags: ${error.message}`)
+    return false
+  }
+}
+
+/**
  * Process a single file for AI-based renaming
  * 
  * @param {Object} options - Configuration options
@@ -237,15 +268,25 @@ module.exports = async options => {
     // Skip if no result was generated
     if (!result) return
 
-    if (useDescription || useKeywords) {
-      // Set the description or keywords as a Finder comment instead of renaming the file
+    if (useKeywords) {
+      // Set the keywords as Finder tags
+      const success = await setFinderTags({ filePath, keywords: result })
+      
+      if (success) {
+        console.log(`🟢 Set tags for: ${relativeFilePath}`)
+        console.log(`🏷️ Tags: "${result}"`)
+      } else {
+        console.log(`🔴 Failed to set tags for: ${relativeFilePath}`)
+      }
+    } else if (useDescription) {
+      // Set the description as a Finder comment
       const success = await setFinderComment({ filePath, description: result })
       
       if (success) {
-        console.log(`🟢 Set ${useKeywords ? 'keywords' : 'description'} for: ${relativeFilePath}`)
-        console.log(`📝 ${useKeywords ? 'Keywords' : 'Description'}: "${result}"`)
+        console.log(`🟢 Set description for: ${relativeFilePath}`)
+        console.log(`📝 Description: "${result}"`)
       } else {
-        console.log(`🔴 Failed to set ${useKeywords ? 'keywords' : 'description'} for: ${relativeFilePath}`)
+        console.log(`🔴 Failed to set description for: ${relativeFilePath}`)
       }
     } else {
       // Rename the file with the AI-generated name
