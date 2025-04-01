@@ -114,11 +114,32 @@ module.exports = async options => {
     let pdfPrompt             // Additional context for PDF files
     let images = []           // Collection of image paths for analysis
     let framesOutputDir       // Temporary directory for video frame extraction
+    let thumbnailOutputDir    // Temporary directory for generated thumbnails
 
     // Process file based on its type
     if (isImage({ ext })) {
-      // For image files, simply add the file path to the images array
-      images.push(filePath)
+      // For standard images (jpg, png, etc.), add the file path directly
+      // For HEIC, generate a PNG thumbnail first as the model might not support HEIC directly
+      if (ext === '.heic') {
+        console.log(`📸 Generating PNG thumbnail for HEIC file: ${relativeFilePath}`);
+        try {
+          const thumbnailPath = await generateThumbnail({ filePath });
+          if (thumbnailPath) {
+            images.push(thumbnailPath);
+            thumbnailOutputDir = path.dirname(thumbnailPath); // Mark for cleanup
+            console.log(`🟢 Generated thumbnail for HEIC: ${thumbnailPath}`);
+          } else {
+            console.log(`🔴 Failed to generate thumbnail for HEIC: ${relativeFilePath}`);
+            return; // Skip if thumbnail fails
+          }
+        } catch (thumbError) {
+          console.error(`❌ Error generating thumbnail for HEIC ${relativeFilePath}: ${thumbError.message}`);
+          return; // Skip on error
+        }
+      } else {
+        // For other supported image types, assume the model can handle them directly
+        images.push(filePath);
+      }
     } else if (isVideo({ ext })) {
       // For video files, create a unique temporary directory
       framesOutputDir = `/tmp/ai-renamer/${uuidv4()}`
@@ -236,8 +257,10 @@ module.exports = async options => {
     }
 
     // Clean up temporary files for video processing or thumbnails
-    if (framesOutputDir) {
-      await deleteDirectory({ folderPath: framesOutputDir })
+    // Clean up temporary directories used for video frames or thumbnails
+    const tempDirToClean = framesOutputDir || thumbnailOutputDir;
+    if (tempDirToClean) {
+      await deleteDirectory({ folderPath: tempDirToClean });
     }
   } catch (err) {
     // Error handling

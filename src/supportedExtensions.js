@@ -30,7 +30,7 @@ module.exports = [
   '.doc', '.docx',
 
   // image files
-  '.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff',
+  '.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.heic',
 
   // video files
   '.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv', '.webm',
