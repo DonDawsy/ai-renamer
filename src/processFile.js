@@ -14,6 +14,10 @@ const path = require('path')
 const { v4: uuidv4 } = require('uuid')
 // Child process for executing shell commands
 const { execSync } = require('child_process')
+// Dictionary modules for keyword validation
+const dictionaryNb = require('dictionary-nb')
+const isWord = require('is-word')
+const englishWords = isWord('american-english')
 
 // Import utility modules
 // For determining file types and processing specific file formats
@@ -90,12 +94,46 @@ const setFinderComment = async ({ filePath, description }) => {
 const setFinderTags = async ({ filePath, keywords }) => {
   try {
     // Split keywords into an array and clean them
-    const tags = keywords
+    let tags = keywords
       .split(',')
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0)
     
     if (tags.length === 0) return false
+    
+    // Filter out invalid words (not in English or Norwegian dictionaries)
+    const validTags = []
+    const invalidTags = []
+    
+    for (const tag of tags) {
+      // Check English dictionary
+      const isEnglish = englishWords.check(tag.toLowerCase())
+      
+      // Check Norwegian dictionary
+      let isNorwegian = false
+      try {
+        const nbDict = await new Promise((resolve, reject) => {
+          dictionaryNb((err, nb) => err ? reject(err) : resolve(nb))
+        })
+        isNorwegian = nbDict.dic.includes(tag.toLowerCase())
+      } catch (err) {
+        console.error('Error checking Norwegian dictionary:', err.message)
+      }
+      
+      if (isEnglish || isNorwegian) {
+        validTags.push(tag)
+      } else {
+        invalidTags.push(tag)
+      }
+    }
+    
+    // Log discarded keywords
+    if (invalidTags.length > 0) {
+      console.log(`🔴 Discarded invalid keywords: ${invalidTags.join(', ')}`)
+    }
+    
+    if (validTags.length === 0) return false
+    tags = validTags
 
     // Create a temporary plist file
     const tmpPlist = `/tmp/tags_${Date.now()}.plist`
