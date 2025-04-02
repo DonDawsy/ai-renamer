@@ -18,6 +18,10 @@ const { execSync } = require('child_process')
 const dictionaryNb = require('dictionary-nb')
 const isWord = require('is-word')
 const englishWords = isWord('american-english')
+// Translation module
+const translate = require('translate').default
+translate.engine = 'google' // Use Google Translate
+translate.key = process.env.GOOGLE_TRANSLATE_API_KEY // Optional API key
 
 // Import utility modules
 // For determining file types and processing specific file formats
@@ -93,15 +97,21 @@ const setFinderComment = async ({ filePath, description }) => {
  */
 const setFinderTags = async ({ filePath, keywords }) => {
   try {
-    // Split keywords into an array, clean them, and capitalize first letter of each word
+    // Split keywords into array and clean them
     let tags = keywords
       .split(',')
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0)
-      .map(tag => tag.split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ')
-      )
+      // Filter out color keywords
+      .filter(tag => {
+        const colors = [
+          'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink',
+          'brown', 'black', 'white', 'gray', 'grey', 'cyan', 'magenta',
+          'lime', 'maroon', 'navy', 'olive', 'teal', 'silver', 'gold',
+          'violet', 'indigo', 'beige', 'turquoise', 'lavender'
+        ]
+        return !colors.includes(tag.toLowerCase())
+      })
     
     if (tags.length === 0) return false
     
@@ -124,8 +134,30 @@ const setFinderTags = async ({ filePath, keywords }) => {
         console.error('Error checking Norwegian dictionary:', err.message)
       }
       
-      if (isEnglish || isNorwegian) {
-        validTags.push(tag)
+      // Translate Norwegian words to English first if needed
+      let processedTag = tag
+      if (!englishWords.check(tag.toLowerCase())) {
+        try {
+          if (translate.engine) {
+            const nbDict = await new Promise((resolve, reject) => {
+              dictionaryNb((err, nb) => err ? reject(err) : resolve(nb))
+            })
+            if (nbDict.dic.includes(tag.toLowerCase())) {
+              processedTag = await translate(tag, { from: 'no', to: 'en' })
+            }
+          }
+        } catch (err) {
+          console.error(`❌ Error processing word "${tag}":`, err.message)
+        }
+      }
+
+      // Capitalize first letter of each word
+      processedTag = processedTag.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ')
+
+      if (englishWords.check(processedTag.toLowerCase())) {
+        validTags.push(processedTag)
       } else {
         invalidTags.push(tag)
       }
@@ -138,6 +170,19 @@ const setFinderTags = async ({ filePath, keywords }) => {
     
     if (validTags.length === 0) return false
     tags = validTags
+
+    // Filter out color keywords (after translation and validation)
+    tags = tags.filter(tag => {
+      const colors = [
+        'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink',
+        'brown', 'black', 'white', 'gray', 'grey', 'cyan', 'magenta',
+        'lime', 'maroon', 'navy', 'olive', 'teal', 'silver', 'gold',
+        'violet', 'indigo', 'beige', 'turquoise', 'lavender'
+      ]
+      return !colors.includes(tag.toLowerCase())
+    })
+
+    if (tags.length === 0) return false
 
     // Create a temporary plist file
     const tmpPlist = `/tmp/tags_${Date.now()}.plist`
