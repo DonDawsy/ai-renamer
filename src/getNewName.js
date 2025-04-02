@@ -18,12 +18,11 @@ module.exports = async options => {
         '• Maximum 10 keywords, can be less',
         '• Use only relevant keywords',
         '• Avoid using colors',
-        `• Use ${language} language`,
+        `• Use ONLY English words, translate if necessary`,
         '• Include important subjects, actions, and visual elements',
         '• Separate keywords with commas',
         '• Use single words',
         '• Order by relevance',
-        '• Always capitalize the first letter of each keyword',
         '',
         'Respond ONLY with the comma-separated keywords.'
       ]

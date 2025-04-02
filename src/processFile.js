@@ -93,11 +93,15 @@ const setFinderComment = async ({ filePath, description }) => {
  */
 const setFinderTags = async ({ filePath, keywords }) => {
   try {
-    // Split keywords into an array and clean them
+    // Split keywords into an array, clean them, and capitalize first letter of each word
     let tags = keywords
       .split(',')
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0)
+      .map(tag => tag.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ')
+      )
     
     if (tags.length === 0) return false
     
