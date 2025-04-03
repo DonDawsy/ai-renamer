@@ -23,6 +23,35 @@ Rename files
 
 https://github.com/user-attachments/assets/f8b37c3a-9cc0-48fc-aaea-f25f7b6ee4cc
 
+## Features
+
+- AI-powered file renaming based on content
+- Support for images, videos, and documents
+- Categorized tagging system (configurable)
+- Finder tags and comments support
+
+### Categorized Tagging
+
+The system can classify documents into predefined categories instead of generating free-form tags.
+
+Configure categories in `config/categories.json`:
+```json
+{
+  "categories": [
+    "Financial/Invoice",
+    "Work/Project"
+  ],
+  "strictMode": true,
+  "allowCustomTags": false
+}
+```
+
+Options:
+- `strictMode`: When true, only allows tags from categories list
+- `allowCustomTags`: When false, prevents any non-category tags
+
+Categories support hierarchical organization (e.g., "Financial/Invoice").
+
 ## Usage
 
 You need to have [Ollama](https://ollama.com/download) or [LM Studio](https://lmstudio.ai/) and at least one LLM (Llava, Gemma, Llama etc.) installed on your system. You need to have [ffmpeg](https://www.ffmpeg.org/download.html) to rename videos.

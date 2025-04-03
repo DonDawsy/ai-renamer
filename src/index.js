@@ -13,7 +13,13 @@ const main = async () => {
       process.exit(1)
     }
 
-    await processPath({ ...config, inputPath })
+    await processPath({
+      ...config,
+      inputPath,
+      useDescription: argv.description,
+      useKeywords: argv.keywords,
+      useCategories: argv.categories
+    })
   } catch (err) {
     console.log(err.message)
   }

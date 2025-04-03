@@ -3,14 +3,66 @@ const getModelResponse = require('./getModelResponse')
 const fs = require('fs').promises
 const path = require('path')
 
+/**
+ * Get a new name or metadata for a file based on its content
+ * @param {Object} options
+ * @param {string} options._case - Case style for filename
+ * @param {number} options.chars - Max characters for filename
+ * @param {string} options.content - File content
+ * @param {string} [options.language] - Output language
+ * @param {string} [options.videoPrompt] - Video-specific prompt
+ * @param {string} [options.pdfPrompt] - PDF-specific prompt
+ * @param {string} [options.customPrompt] - Custom instructions
+ * @param {string} [options.relativeFilePath] - File path for logging
+ * @param {boolean} [options.showPrompt] - Whether to save prompt
+ * @param {boolean} [options.useDescription] - Generate description
+ * @param {boolean} [options.useKeywords] - Generate keywords
+ * @param {boolean} [options.useCategories] - Generate categorized tags
+ * @param {Object} [options.categoriesConfig] - Categories configuration
+ * @returns {Promise<string>}
+ */
 module.exports = async options => {
-  const { _case, chars, content, language, videoPrompt, pdfPrompt, customPrompt, relativeFilePath, showPrompt, useDescription, useKeywords } = options
+  const { 
+    _case, 
+    chars, 
+    content, 
+    language, 
+    videoPrompt, 
+    pdfPrompt, 
+    customPrompt, 
+    relativeFilePath, 
+    showPrompt, 
+    useDescription, 
+    useKeywords, 
+    useCategories,
+    categoriesConfig 
+  } = options
 
   try {
     let promptLines = []
     
-    if (useKeywords) {
-      // Prompt for keywords mode
+    if (useCategories) {
+      // Category classification mode
+      if (!categoriesConfig?.categories?.length) {
+        throw new Error('Categories mode requires valid categories configuration')
+      }
+      promptLines = [
+        `Classify this document into the most relevant categories from this exact list:`,
+        categoriesConfig.categories?.join(', ') || '',
+        '',
+        'Rules:',
+        '• Select 1-3 most relevant categories',
+        '• Use ONLY the exact category names above',
+        '• Separate with commas if multiple',
+        '• Do not invent new categories',
+        '• Order by relevance',
+        '',
+        'Example response: "Financial, Work, Invoice"',
+        '',
+        'Respond ONLY with the selected categories.'
+      ]
+    } else if (useKeywords) {
+      // Original keyword mode
       promptLines = [
         'Generate keywords for this file:',
         '',
@@ -113,7 +165,7 @@ module.exports = async options => {
 
     const modelResult = await getModelResponse({ ...options, prompt })
     
-    if (useKeywords || useDescription) {
+    if (useKeywords || useDescription || useCategories) {
       // For keywords and description modes, return the full text without character limit or case conversion
       return modelResult.trim()
     } else {

@@ -86,7 +86,12 @@ module.exports = async () => {
     .option('keywords', {
       alias: 'k',
       type: 'boolean',
-      description: 'Generate keywords for the file instead of renaming it'
+      description: 'Generate free-form keywords for the file instead of renaming it'
+    })
+    .option('categories', {
+      alias: 'g',
+      type: 'boolean',
+      description: 'Generate categorized tags from predefined list'
     }).argv
 
   if (argv.help) {
@@ -150,6 +155,10 @@ module.exports = async () => {
 
   if (argv.keywords) {
     config.useKeywords = true
+  }
+
+  if (argv.categories) {
+    config.useCategories = true
   }
 
   return { argv, config }

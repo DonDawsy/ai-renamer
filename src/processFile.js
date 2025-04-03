@@ -12,6 +12,21 @@ const fs = require('fs')
 const path = require('path')
 // UUID generator for creating unique temporary directory names
 const { v4: uuidv4 } = require('uuid')
+
+// Load categories configuration
+let categoriesConfig = {}
+try {
+  const configPath = path.join(__dirname, '../config/categories.json')
+  categoriesConfig = require(configPath)
+  if (!categoriesConfig.categories) {
+    console.warn('⚠️ Warning: Invalid categories.json format - missing categories array')
+    categoriesConfig = { categories: [] }
+  }
+} catch (err) {
+  console.warn(`⚠️ Warning: Could not load categories.json: ${err.message}`)
+  categoriesConfig = { categories: [] }
+}
+
 // Child process for executing shell commands
 const { execSync } = require('child_process')
 // Dictionary modules for keyword validation
@@ -95,15 +110,17 @@ const setFinderComment = async ({ filePath, description }) => {
  * @param {string} keywords - Comma-separated keywords to set as tags
  * @returns {boolean} Success status
  */
-const setFinderTags = async ({ filePath, keywords }) => {
+const setFinderTags = async ({ filePath, keywords, useCategories = false }) => {
   try {
     // Split keywords into array and clean them
     let tags = keywords
       .split(',')
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0)
-      // Filter out color keywords
-      .filter(tag => {
+    
+    // Skip color filtering for category mode
+    if (!useCategories) {
+      tags = tags.filter(tag => {
         const colors = [
           'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink',
           'brown', 'black', 'white', 'gray', 'grey', 'cyan', 'magenta',
@@ -112,52 +129,70 @@ const setFinderTags = async ({ filePath, keywords }) => {
         ]
         return !colors.includes(tag.toLowerCase())
       })
+    }
     
     if (tags.length === 0) return false
     
-    // Filter out invalid words (not in English or Norwegian dictionaries)
+    // Filter tags based on categories config
     const validTags = []
     const invalidTags = []
     
     for (const tag of tags) {
-      // Check English dictionary
-      const isEnglish = englishWords.check(tag.toLowerCase())
-      
-      // Check Norwegian dictionary
-      let isNorwegian = false
-      try {
-        const nbDict = await new Promise((resolve, reject) => {
-          dictionaryNb((err, nb) => err ? reject(err) : resolve(nb))
-        })
-        isNorwegian = nbDict.dic.includes(tag.toLowerCase())
-      } catch (err) {
-        console.error('Error checking Norwegian dictionary:', err.message)
+      // Skip validation for category tags
+      if (categoriesConfig.categories?.includes(tag)) {
+        validTags.push(tag)
+        continue
       }
       
-      // Translate Norwegian words to English first if needed
-      let processedTag = tag
-      if (!englishWords.check(tag.toLowerCase())) {
+      // For non-category tags, apply strict mode rules
+      if (categoriesConfig.strictMode) {
+        invalidTags.push(tag)
+        continue
+      }
+      
+      // Original dictionary validation for custom tags (if allowed)
+      if (categoriesConfig.allowCustomTags !== false) {
+        // Check English dictionary
+        const isEnglish = englishWords.check(tag.toLowerCase())
+        
+        // Check Norwegian dictionary
+        let isNorwegian = false
         try {
-          if (translate.engine) {
-            const nbDict = await new Promise((resolve, reject) => {
-              dictionaryNb((err, nb) => err ? reject(err) : resolve(nb))
-            })
-            if (nbDict.dic.includes(tag.toLowerCase())) {
-              processedTag = await translate(tag, { from: 'no', to: 'en' })
-            }
-          }
+          const nbDict = await new Promise((resolve, reject) => {
+            dictionaryNb((err, nb) => err ? reject(err) : resolve(nb))
+          })
+          isNorwegian = nbDict.dic.includes(tag.toLowerCase())
         } catch (err) {
-          console.error(`❌ Error processing word "${tag}":`, err.message)
+          console.error('Error checking Norwegian dictionary:', err.message)
         }
-      }
+        
+        // Translate Norwegian words to English first if needed
+        let processedTag = tag
+        if (!englishWords.check(tag.toLowerCase())) {
+          try {
+            if (translate.engine) {
+              const nbDict = await new Promise((resolve, reject) => {
+                dictionaryNb((err, nb) => err ? reject(err) : resolve(nb))
+              })
+              if (nbDict.dic.includes(tag.toLowerCase())) {
+                processedTag = await translate(tag, { from: 'no', to: 'en' })
+              }
+            }
+          } catch (err) {
+            console.error(`❌ Error processing word "${tag}":`, err.message)
+          }
+        }
 
-      // Capitalize first letter of each word
-      processedTag = processedTag.split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ')
+        // Capitalize first letter of each word
+        processedTag = processedTag.split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ')
 
-      if (englishWords.check(processedTag.toLowerCase())) {
-        validTags.push(processedTag)
+        if (englishWords.check(processedTag.toLowerCase())) {
+          validTags.push(processedTag)
+        } else {
+          invalidTags.push(tag)
+        }
       } else {
         invalidTags.push(tag)
       }
@@ -224,7 +259,7 @@ const setFinderTags = async ({ filePath, keywords }) => {
 module.exports = async options => {
   try {
     // Extract necessary options
-    const { frames, filePath, inputPath, useDescription, useKeywords } = options
+    const { frames, filePath, inputPath, useDescription, useKeywords, useCategories } = options
 
     // Get file information
     const fileName = path.basename(filePath)
@@ -357,21 +392,42 @@ module.exports = async options => {
     }
 
     // Use AI to generate a new name based on the file content
-    const result = await getNewName({ 
-      ...options, 
+    const result = await getNewName({
+      ...options,
       images,           // Image paths for image/video files
       content,          // Text content for text files
       videoPrompt,      // Additional context for videos
       pdfPrompt,        // Additional context for PDFs
-      relativeFilePath  // File location information
+      relativeFilePath, // File location information
+      useCategories: options.useCategories,
+      categoriesConfig: categoriesConfig  // Pass the loaded config explicitly
     })
     
     // Skip if no result was generated
     if (!result) return
 
-    if (useKeywords) {
+    if (useCategories) {
+      // Set the categories as Finder tags
+      const success = await setFinderTags({
+        filePath,
+        keywords: result,
+        useCategories: true,
+        categoriesConfig
+      })
+      
+      if (success) {
+        console.log(`🟢 Set categories for: ${relativeFilePath}`)
+        console.log(`🏷️ Categories: "${result}"`)
+      } else {
+        console.log(`🔴 Failed to set categories for: ${relativeFilePath}`)
+      }
+    } else if (useKeywords) {
       // Set the keywords as Finder tags
-      const success = await setFinderTags({ filePath, keywords: result })
+      const success = await setFinderTags({
+        filePath,
+        keywords: result,
+        useCategories: false
+      })
       
       if (success) {
         console.log(`🟢 Set tags for: ${relativeFilePath}`)
