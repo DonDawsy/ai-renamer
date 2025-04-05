@@ -1,6 +1,6 @@
 /**
  * processFile.js
- * 
+ *
  * This module is responsible for processing individual files for AI-based renaming.
  * It handles different file types (images, videos, and text files) with specialized processing
  * for each type, then uses AI to generate a new name based on the file's content.
@@ -53,7 +53,7 @@ const extractAffinityThumbnail = require('./extractAffinityThumbnail')
 
 /**
  * Check if a file is a PDF
- * 
+ *
  * @param {string} ext - File extension
  * @returns {boolean} True if the file is a PDF
  */
@@ -63,7 +63,7 @@ const isPdf = ({ ext }) => {
 
 /**
  * Check if a file is an Affinity Designer or Photo file
- * 
+ *
  * @param {string} ext - File extension
  * @returns {boolean} True if the file is an Affinity file
  */
@@ -73,7 +73,7 @@ const isAffinityFile = ({ ext }) => {
 
 /**
  * Safe string check - ensures a value is a string and has content
- * 
+ *
  * @param {any} value - Value to check
  * @returns {boolean} True if the value is a non-empty string
  */
@@ -83,7 +83,7 @@ const isNonEmptyString = (value) => {
 
 /**
  * Set Finder comment/description for a file using AppleScript
- * 
+ *
  * @param {string} filePath - Path to the file
  * @param {string} description - Description to set as Finder comment
  * @returns {boolean} Success status
@@ -92,7 +92,7 @@ const setFinderComment = async ({ filePath, description }) => {
   try {
     // Escape quotes in the description for AppleScript
     const escapedDescription = description.replace(/"/g, '\\"')
-    
+
     // Create and execute the AppleScript command
     const command = `osascript -e 'tell application "Finder" to set comment of (POSIX file "${filePath}" as alias) to "${escapedDescription}"'`
     execSync(command)
@@ -105,7 +105,7 @@ const setFinderComment = async ({ filePath, description }) => {
 
 /**
  * Set Finder tags for a file using xattr
- * 
+ *
  * @param {string} filePath - Path to the file
  * @param {string} keywords - Comma-separated keywords to set as tags
  * @returns {boolean} Success status
@@ -117,7 +117,7 @@ const setFinderTags = async ({ filePath, keywords, useCategories = false }) => {
       .split(',')
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0)
-    
+
     // Skip color filtering for category mode
     if (!useCategories) {
       tags = tags.filter(tag => {
@@ -130,31 +130,31 @@ const setFinderTags = async ({ filePath, keywords, useCategories = false }) => {
         return !colors.includes(tag.toLowerCase())
       })
     }
-    
+
     if (tags.length === 0) return false
-    
+
     // Filter tags based on categories config
     const validTags = []
     const invalidTags = []
-    
+
     for (const tag of tags) {
       // Skip validation for category tags
       if (categoriesConfig.categories?.includes(tag)) {
         validTags.push(tag)
         continue
       }
-      
-      // For non-category tags, apply strict mode rules
-      if (categoriesConfig.strictMode) {
+
+      // For non-category tags, apply strict mode rules only when using categories mode
+      if (useCategories && categoriesConfig.strictMode) {
         invalidTags.push(tag)
         continue
       }
-      
+
       // Original dictionary validation for custom tags (if allowed)
-      if (categoriesConfig.allowCustomTags !== false) {
+      if (useCategories === false || categoriesConfig.allowCustomTags !== false) {
         // Check English dictionary
         const isEnglish = englishWords.check(tag.toLowerCase())
-        
+
         // Check Norwegian dictionary
         let isNorwegian = false
         try {
@@ -165,7 +165,7 @@ const setFinderTags = async ({ filePath, keywords, useCategories = false }) => {
         } catch (err) {
           console.error('Error checking Norwegian dictionary:', err.message)
         }
-        
+
         // Translate Norwegian words to English first if needed
         let processedTag = tag
         if (!englishWords.check(tag.toLowerCase())) {
@@ -197,12 +197,12 @@ const setFinderTags = async ({ filePath, keywords, useCategories = false }) => {
         invalidTags.push(tag)
       }
     }
-    
+
     // Log discarded keywords
     if (invalidTags.length > 0) {
       console.log(`🔴 Discarded invalid keywords: ${invalidTags.join(', ')}`)
     }
-    
+
     if (validTags.length === 0) return false
     tags = validTags
 
@@ -221,24 +221,24 @@ const setFinderTags = async ({ filePath, keywords, useCategories = false }) => {
 
     // Create a temporary plist file
     const tmpPlist = `/tmp/tags_${Date.now()}.plist`
-    
+
     // Convert tags array to plist format
     const plistTags = tags.map(tag => `<string>${tag}</string>`).join('')
     const plist = `<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array>${plistTags}</array></plist>`
-    
+
     // Write the XML plist to temporary file
     fs.writeFileSync(tmpPlist, plist)
-    
+
     // Convert to binary plist
     execSync(`plutil -convert binary1 "${tmpPlist}"`)
-    
+
     // Read the binary plist and set it using xattr
     const binaryPlist = fs.readFileSync(tmpPlist)
     execSync(`xattr -wx com.apple.metadata:_kMDItemUserTags "${binaryPlist.toString('hex')}" "${filePath}"`)
-    
+
     // Clean up temporary file
     fs.unlinkSync(tmpPlist)
-    
+
     return true
   } catch (error) {
     console.error(`Error setting Finder tags: ${error.message}`)
@@ -248,7 +248,7 @@ const setFinderTags = async ({ filePath, keywords, useCategories = false }) => {
 
 /**
  * Process a single file for AI-based renaming
- * 
+ *
  * @param {Object} options - Configuration options
  * @param {number} options.frames - Number of frames to extract from videos
  * @param {string} options.filePath - Absolute path to the file being processed
@@ -310,38 +310,38 @@ module.exports = async options => {
     } else if (isVideo({ ext })) {
       // For video files, create a unique temporary directory
       framesOutputDir = `/tmp/ai-renamer/${uuidv4()}`
-      
+
       // Extract representative frames from the video
       const _extractedFrames = await extractFrames({
         frames,               // Number of frames to extract
         framesOutputDir,      // Where to store extracted frames
         inputFile: filePath   // Source video file
       })
-      
+
       // Get the paths to extracted frames and any additional context
       images = _extractedFrames.images
       videoPrompt = _extractedFrames.videoPrompt
     } else if (isPdf({ ext })) {
       // For PDF files, read content and metadata with enhanced PDF processing
       const pdfContent = await readFileContent({ filePath })
-      
+
       if (!pdfContent || (!pdfContent.firstContent && Object.keys(pdfContent.metadata).length === 0)) {
         console.log(`🔴 No PDF content or metadata: ${relativeFilePath}`)
         return
       }
-      
+
       // Create a specific PDF prompt including metadata, with safe string handling
       const metadataStr = Object.entries(pdfContent.metadata)
         .filter(([_, value]) => isNonEmptyString(value))
         .map(([key, value]) => `${key}: ${value}`)
         .join('\n')
-        
+
       pdfPrompt = `This is a PDF document with ${pdfContent.metadata.pageCount || 'multiple'} pages.\n`
-      
+
       if (metadataStr) {
         pdfPrompt += `PDF Metadata:\n${metadataStr}\n\n`
       }
-      
+
       // Use the first content section of the PDF as the main content
       content = pdfContent.firstContent || pdfContent.fullText
     } else if (isAffinityFile({ ext })) {
@@ -357,20 +357,20 @@ module.exports = async options => {
         // Generate a thumbnail using qlmanage
         console.log(`📸 Attempting to generate thumbnail using qlmanage for: ${relativeFilePath}`);
         const thumbnailPath = await generateThumbnail({ filePath });
-        
+
         if (thumbnailPath) {
           // If thumbnail generation succeeded, add it to the images array
           images.push(thumbnailPath);
           console.log(`🟢 Generated thumbnail for: ${relativeFilePath}`);
           console.log(`📄 Thumbnail path: ${thumbnailPath}`);
-          
+
           // Mark this path for cleanup
           framesOutputDir = path.dirname(thumbnailPath);
         } else {
           console.log(`⚠️ Thumbnail generation failed, falling back to text content for: ${relativeFilePath}`);
           // Fall back to reading as text if thumbnail generation fails
           content = await readFileContent({ filePath });
-          
+
           // Skip files without readable content
           if (!content) {
             console.log(`🔴 No content or preview: ${relativeFilePath}`);
@@ -382,7 +382,7 @@ module.exports = async options => {
         // If thumbnail generation fails, fall back to reading as text
         console.log(`⚠️ Falling back to text content for: ${relativeFilePath}`);
         content = await readFileContent({ filePath });
-        
+
         // Skip files without readable content
         if (!content) {
           console.log(`🔴 No text content: ${relativeFilePath}`);
@@ -402,7 +402,7 @@ module.exports = async options => {
       useCategories: options.useCategories,
       categoriesConfig: categoriesConfig  // Pass the loaded config explicitly
     })
-    
+
     // Skip if no result was generated
     if (!result) return
 
@@ -414,7 +414,7 @@ module.exports = async options => {
         useCategories: true,
         categoriesConfig
       })
-      
+
       if (success) {
         console.log(`🟢 Set categories for: ${relativeFilePath}`)
         console.log(`🏷️ Categories: "${result}"`)
@@ -426,9 +426,10 @@ module.exports = async options => {
       const success = await setFinderTags({
         filePath,
         keywords: result,
-        useCategories: false
+        useCategories: false,
+        categoriesConfig
       })
-      
+
       if (success) {
         console.log(`🟢 Set tags for: ${relativeFilePath}`)
         console.log(`🏷️ Tags: "${result}"`)
@@ -438,7 +439,7 @@ module.exports = async options => {
     } else if (useDescription) {
       // Set the description as a Finder comment
       const success = await setFinderComment({ filePath, description: result })
-      
+
       if (success) {
         console.log(`🟢 Set description for: ${relativeFilePath}`)
         console.log(`📝 Description: "${result}"`)
@@ -448,7 +449,7 @@ module.exports = async options => {
     } else {
       // Rename the file with the AI-generated name
       const newFileName = await saveFile({ ext, newName: result, filePath })
-      
+
       // Calculate the new relative path for reporting
       const relativeNewFilePath = path.join(path.dirname(relativeFilePath), newFileName)
       console.log(`🟢 Renamed: ${relativeFilePath} to ${relativeNewFilePath}`)
