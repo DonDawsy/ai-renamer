@@ -1,48 +1,56 @@
 {
-  "categories": [
-    "Financial",
-    "Invoice",
-    "Receipt",
-    "Tax",
-    "Legal",
-    "Contract",
-    "Agreement",
-    "Personal",
-    "Identification",
-    "Health",
-    "Travel",
-    "Flight",
-    "Hotel",
-    "Project",
-    "Meeting",
-    "Education",
-    "Certificate",
-    "Transcript",
-    "Marketing",
-    "User Manuals"
-
-  ],
   "strictMode": true,
   "allowCustomTags": false,
-  "descriptions": {
-    "Financial": "Bank statements, investments, and financial reports",
-    "Invoice": "Bills and payment requests from vendors",
-    "Receipt": "Purchase confirmations and payment records",
-    "Tax": "Tax returns, forms, and related documents",
-    "Legal": "Court documents, legal notices, and official correspondence",
-    "Contract": "Signed agreements and legal contracts",
-    "Agreement": "Non-binding agreements and memorandums",
-    "Personal": "Private documents not fitting other categories",
-    "Identification": "Passports, licenses, and ID documents",
-    "Health": "Medical records and health insurance documents",
-    "Travel": "Trip itineraries and travel-related documents",
-    "Flight": "Airline tickets and flight itineraries",
-    "Hotel": "Reservation confirmations and receipts",
-    "Work": "Job-related documents and professional materials",
-    "Project": "Project plans, specifications, and deliverables",
-    "Meeting": "Meeting notes, minutes, and presentations",
-    "Education": "Academic records and learning materials",
-    "Certificate": "Diplomas, awards, and certifications",
-    "Transcript": "Academic records and grade reports"
+  "categories": {
+    "Financial": {
+      "description": "Documents related to finances, banking, investments, and payments.",
+      "children": {
+        "Invoice": "Bills and payment requests from vendors or clients.",
+        "Receipt": "Purchase confirmations and payment records.",
+        "Tax": "Tax returns, forms, and related financial documents for government purposes."
+      }
+    },
+    "Legal": {
+      "description": "Official legal documents, contracts, and agreements.",
+      "children": {
+        "Contract": "Formal, signed agreements and legally binding contracts.",
+        "Agreement": "Non-binding agreements, memorandums of understanding, or less formal accords."
+      }
+    },
+    "Personal": {
+      "description": "Private documents related to an individual's personal life.",
+      "children": {
+        "Identification": "Passports, driver's licenses, ID cards, and other identity verification documents.",
+        "Health": "Medical records, insurance documents, lab results, and health-related correspondence."
+      }
+    },
+    "Travel": {
+      "description": "Documents related to travel planning and execution.",
+      "children": {
+        "Flight": "Airline tickets, boarding passes, and flight itineraries.",
+        "Hotel": "Hotel reservation confirmations, booking details, and receipts."
+      }
+    },
+    "Work": {
+      "description": "Documents related to professional activities, employment, or business projects.",
+      "children": {
+        "Project": "Project plans, specifications, reports, and deliverables.",
+        "Meeting": "Meeting agendas, minutes, notes, and presentations.",
+        "Marketing": "Promotional materials, campaigns, market research, and branding documents."
+      }
+    },
+    "Education": {
+      "description": "Documents related to academic pursuits and achievements.",
+      "children": {
+        "Certificate": "Diplomas, awards, certifications, and official recognitions.",
+        "Transcript": "Academic records detailing courses taken and grades received."
+      }
+    },
+    "Technical": {
+      "description": "Technical documentation and guides.",
+      "children": {
+         "User Manuals": "Instructions, guides, and documentation for products, software, or hardware."
+      }
+    }
   }
 }

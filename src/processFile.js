@@ -138,10 +138,31 @@ const setFinderTags = async ({ filePath, keywords, useCategories = false }) => {
     const invalidTags = []
 
     for (const tag of tags) {
-      // Skip validation for category tags
-      if (categoriesConfig.categories?.includes(tag)) {
-        validTags.push(tag)
-        continue
+      // Validate that the tag is one of the defined specific categories
+      let isValidCategoryTag = false;
+      const topLevelCategories = categoriesConfig.categories || {};
+      for (const parentCat in topLevelCategories) {
+        if (topLevelCategories.hasOwnProperty(parentCat)) {
+          const children = topLevelCategories[parentCat].children || {};
+          if (children.hasOwnProperty(tag)) { // Check if tag is a key in the children object
+            // Add the child tag
+            if (!validTags.includes(tag)) { // Avoid duplicates if AI returns same tag multiple times
+              validTags.push(tag);
+            }
+            // Add the parent tag if not already present
+            if (!validTags.includes(parentCat)) {
+              validTags.push(parentCat);
+            }
+            isValidCategoryTag = true;
+            break; // Found the parent, no need to check other parents for this tag
+          }
+        }
+      }
+
+      // If it was a valid category tag (child), we've already processed it and its parent.
+      // We can continue to the next tag provided by the AI.
+      if (isValidCategoryTag) {
+        continue;
       }
 
       // For non-category tags, apply strict mode rules only when using categories mode
