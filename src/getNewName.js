@@ -39,99 +39,105 @@ module.exports = async options => {
   } = options
 
   try {
-    let promptLines = []
-    
-    if (useCategories) {
-      // Category classification mode
+    function buildCategoryPrompt(categoriesConfig) {
       const topLevelCategories = categoriesConfig?.categories || {};
       if (Object.keys(topLevelCategories).length === 0) {
-        throw new Error('Categories mode requires a valid categories configuration object')
+        throw new Error('Categories mode requires a valid categories configuration object');
       }
-
       let categoryListText = '';
       for (const parentCat in topLevelCategories) {
         if (topLevelCategories.hasOwnProperty(parentCat)) {
           const parentData = topLevelCategories[parentCat];
           // Optional: Include parent description if desired, for now focusing on children
           // categoryListText += `\n**${parentCat}**: ${parentData.description || 'Parent category'}\n`;
-          
           const children = parentData.children || {};
           for (const childCat in children) {
             if (children.hasOwnProperty(childCat)) {
-              // Format as: "- ChildCategory: Description"
               categoryListText += `- ${childCat}: ${children[childCat] || 'No description'}\n`;
             }
           }
         }
       }
-      // Remove trailing newline
       categoryListText = categoryListText.trim();
-
-      promptLines = [
-        `Classify this document into the most relevant specific categories from the list below. Use the provided descriptions for context:`,
-        categoryListText, // The generated list of specific categories
+      return [
+        `Classify the document content into the most relevant specific categories from the list below. Use the provided descriptions for context:`,
+        categoryListText,
         '',
         'Rules:',
-        '• Select 1-3 most relevant **specific** categories (e.g., "Invoice", "Contract", not "Financial", "Legal").', // Emphasize selecting leaf nodes
+        '• Select 1-3 most relevant **specific** categories (e.g., "Invoice", "Contract", not "Financial", "Legal").',
         '• Use ONLY the exact specific category names listed above.',
         '• Separate with commas if multiple.',
         '• Do not invent new categories.',
         '• Order by relevance.',
+        '• Prioritize the most specific categories available. Choose \\"Invoice\\" over \\"Financial\\" when both are applicable.',
         '',
-        'Example response: "Invoice, Contract, Health"', // Updated example
+        'Example response: \\"Invoice, Contract, Health\\"',
         '',
         'Respond ONLY with the selected specific categories.'
-      ]
-    } else if (useKeywords) {
-      // Original keyword mode
-      promptLines = [
+      ];
+    }
+
+    function buildKeywordPrompt() {
+      return [
         'Generate keywords for this file:',
         '',
         'Rules:',
         '• Maximum 10 keywords, can be less',
-        '• Use only relevant keywords',
-        '• Avoid using colors',
+        '• Use only keywords that are highly relevant to the file\'s content and purpose.',
         `• Use ONLY English words, translate if necessary`,
-        '• Include important subjects, actions, and visual elements',
+        '• Include keywords representing the main subjects, actions, and prominent visual elements or themes present in the file\'s content.',
         '• Separate keywords with commas',
-        '• Use single words',
+        '• Use single words or short, descriptive phrases where appropriate.',
         '• Order by relevance',
         '',
         'Respond ONLY with the comma-separated keywords.'
-      ]
-    } else if (useDescription) {
-      // Prompt for description mode
-      promptLines = [
+      ];
+    }
+
+    function buildDescriptionPrompt(language) {
+      return [
         'Generate a detailed description of this file for use as metadata:',
         '',
         'Rules:',
-        '• Provide a comprehensive yet concise description',
+        '• Focus on the most important aspects of the file to create a concise description.',
         `• Use ${language} language`,
         '• Describe visual elements, content, and context',
         '• Format in complete sentences',
         '• Maximum 2-3 sentences',
-        '• Include key details that would help identify this file',
+        '• Include key details such as the file\'s main topic, purpose, and any unique or distinguishing features.',
         '',
         'Respond ONLY with the description.'
-      ]
-    } else {
-      // Original prompt for filename mode
-      promptLines = [
-        'Generate descriptive filename for the provided image:',
+      ];
+    }
+
+    function buildFilenamePrompt(chars) {
+      return [
+        'Generate descriptive filename for the provided file content:',
         '',
         'Rules:',
         `• Max ${chars} characters`,
         '• English words only',
         '• Exclude file extension',
-        '• No special characters',
+        '• Use only alphanumeric characters, hyphens, and underscores',
         '• Include only essential elements',
-        '• Format: Noun + Action/State',
+        '• Aim for a concise name, like Noun + Action/State or Topic + Purpose',
         '• Describe main subject and activity',
         '',
-        'Example: "Cat Sleeping" for an image of a sleeping cat',
+        'Example: "Document Summary" for a document summary',
         '',
         'Respond ONLY with the generated filename.'
-      ]
+      ];
+    }
+
+    let promptLines = [];
+    if (useCategories) {
+      promptLines = buildCategoryPrompt(categoriesConfig);
+    } else if (useKeywords) {
+      promptLines = buildKeywordPrompt();
+    } else if (useDescription) {
+      promptLines = buildDescriptionPrompt(language);
+    } else {
+      promptLines = buildFilenamePrompt(chars);
     }
 
     if (videoPrompt) {
